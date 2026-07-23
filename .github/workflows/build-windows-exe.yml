@@ -1,0 +1,60 @@
+name: Build Windows EXE
+
+# Manually triggerable from the Actions tab (Run workflow button), and also
+# runs automatically when you push a version tag (git tag v0.1.0 && git push
+# origin v0.1.0), same as the release workflow.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package + PyInstaller
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build standalone exe with PyInstaller
+        run: pyinstaller --onefile --name snubber-analyzer windows_entry.py
+
+      # A plain PyInstaller exe only bundles the Python code -- it does NOT
+      # include ngspice, which is a separate program this tool calls out to.
+      # So we download the official ngspice Windows binary here and ship it
+      # in a Spice64 folder next to the .exe. src/snubber_analyzer/simulate.py
+      # already knows to look for Spice64/bin/ngspice_con.exe next to a
+      # frozen executable.
+      - name: Download ngspice (official Windows binary)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/46/ngspice-46_64.7z/download" `
+            -OutFile ngspice.7z -UserAgent "Mozilla/5.0"
+          & "C:\Program Files\7-Zip\7z.exe" x ngspice.7z -ongspice_extracted -y
+
+      - name: Assemble the release folder (exe + ngspice side by side)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release\snubber-analyzer -Force | Out-Null
+          Copy-Item dist\snubber-analyzer.exe release\snubber-analyzer\
+          Copy-Item -Recurse ngspice_extracted\Spice64 release\snubber-analyzer\Spice64
+          Copy-Item examples\example_config.json release\snubber-analyzer\example_config.json -ErrorAction SilentlyContinue
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: snubber-analyzer-windows
+          path: release/snubber-analyzer/
+          if-no-files-found: error

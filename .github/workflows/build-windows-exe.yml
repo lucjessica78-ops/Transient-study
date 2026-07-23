@@ -1,8 +1,5 @@
 name: Build Windows EXE
 
-# Manually triggerable from the Actions tab (Run workflow button), and also
-# runs automatically when you push a version tag (git tag v0.1.0 && git push
-# origin v0.1.0), same as the release workflow.
 on:
   workflow_dispatch:
   push:
@@ -30,20 +27,9 @@ jobs:
       - name: Build standalone exe with PyInstaller
         run: pyinstaller --onefile --name snubber-analyzer windows_entry.py
 
-      # A plain PyInstaller exe only bundles the Python code -- it does NOT
-      # include ngspice, which is a separate program this tool calls out to.
-      # So we download the official ngspice Windows binary here and ship it
-      # in a Spice64 folder next to the .exe. src/snubber_analyzer/simulate.py
-      # already knows to look for Spice64/bin/ngspice_con.exe next to a
-      # frozen executable.
       - name: Download ngspice (official Windows binary)
         shell: pwsh
         run: |
-          # sourceforge.net/.../download is the human-facing page and can
-          # return a Cloudflare bot-challenge (a JS page, not the file) to
-          # non-browser clients like this runner. downloads.sourceforge.net
-          # is SourceForge's direct-mirror endpoint -- a plain HTTP redirect
-          # straight to a mirror server, with no JS challenge in the way.
           $url = "https://downloads.sourceforge.net/project/ngspice/ng-spice-rework/46/ngspice-46_64.7z"
           $headers = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" }
 

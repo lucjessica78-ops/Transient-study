@@ -1,0 +1,28 @@
+{
+  "cable_size": "1/0 AWG",
+  "material": "cu",
+  "stranded": true,
+  "length_ft": 150.0,
+  "temp_c": 75.0,
+  "config": "single",
+  "spacing_in": 6.0,
+  "eps_r": 2.3,
+
+  "xfmr_enable": false,
+  "xfmr_kind": "dist",
+  "xfmr_kva": 75.0,
+  "xfmr_kv": 12.47,
+  "xfmr_pct_z": 2.5,
+  "xfmr_xr": 3.0,
+  "xfmr_c_pf": 3000.0,
+
+  "scenario": "interrupt",
+  "I0_amps": 50.0,
+  "R_load_ohm": 10000.0,
+  "c_extra_pf": 50.0,
+
+  "Rsnub_ohm": 100.0,
+  "Csnub_pf": 400.0,
+  "snub_on": true,
+  "fsw_hz": 20000.0
+}

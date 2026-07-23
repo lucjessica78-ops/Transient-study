@@ -7,6 +7,7 @@ the ngspice binary, and parses the resulting data file.
 """
 
 import os
+import sys
 import shutil
 import subprocess
 import numpy as np
@@ -16,12 +17,42 @@ class NgspiceNotFoundError(RuntimeError):
     pass
 
 
+def _find_ngspice_binary():
+    """
+    Locate the ngspice executable.
+
+    Checked in order:
+      1. PATH (normal install: apt/brew/the official Windows installer)
+      2. A Spice64/bin folder sitting next to a frozen executable -- this is
+         how the "Build Windows EXE" CI workflow ships ngspice alongside a
+         PyInstaller-built .exe, since PyInstaller only bundles the Python
+         code, not the separate ngspice program.
+    """
+    for name in ("ngspice_con", "ngspice_con.exe", "ngspice", "ngspice.exe"):
+        found = shutil.which(name)
+        if found:
+            return found
+
+    if getattr(sys, "frozen", False):
+        base = os.path.dirname(sys.executable)
+        for candidate in ("Spice64/bin/ngspice_con.exe", "Spice64/bin/ngspice.exe"):
+            p = os.path.join(base, candidate)
+            if os.path.exists(p):
+                return p
+
+    return None
+
+
 def run_ngspice(netlist_text: str, workdir: str, n_uniform: int = 8192) -> dict:
-    if shutil.which("ngspice") is None:
+    ngspice_bin = _find_ngspice_binary()
+    if ngspice_bin is None:
         raise NgspiceNotFoundError(
-            "ngspice is not installed or not on PATH. Install it with "
+            "ngspice was not found on PATH, and no bundled Spice64/bin folder "
+            "was found next to this executable. Install it with "
             "'sudo apt-get install ngspice' (Debian/Ubuntu), 'brew install ngspice' "
-            "(macOS), or see https://ngspice.sourceforge.io for other platforms."
+            "(macOS), the official installer (Windows), or make sure the "
+            "Spice64 folder shipped with this build sits in the same folder "
+            "as the .exe. See https://ngspice.sourceforge.io for details."
         )
 
     workdir_abs = os.path.abspath(workdir)
@@ -41,7 +72,7 @@ def run_ngspice(netlist_text: str, workdir: str, n_uniform: int = 8192) -> dict:
     # cwd=./run resolves to ./run/run/ngspice.log and silently isn't
     # created). Using absolute paths throughout avoids both failure modes.
     result = subprocess.run(
-        ["ngspice", "-b", cir_path, "-o", log_path],
+        [ngspice_bin, "-b", cir_path, "-o", log_path],
         cwd=workdir_abs, capture_output=True, text=True, timeout=120
     )
     if not os.path.exists(dat_path):

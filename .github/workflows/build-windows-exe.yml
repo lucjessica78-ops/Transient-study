@@ -39,9 +39,24 @@ jobs:
       - name: Download ngspice (official Windows binary)
         shell: pwsh
         run: |
-          Invoke-WebRequest `
-            -Uri "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/46/ngspice-46_64.7z/download" `
-            -OutFile ngspice.7z -UserAgent "Mozilla/5.0"
+          # sourceforge.net/.../download is the human-facing page and can
+          # return a Cloudflare bot-challenge (a JS page, not the file) to
+          # non-browser clients like this runner. downloads.sourceforge.net
+          # is SourceForge's direct-mirror endpoint -- a plain HTTP redirect
+          # straight to a mirror server, with no JS challenge in the way.
+          $url = "https://downloads.sourceforge.net/project/ngspice/ng-spice-rework/46/ngspice-46_64.7z"
+          $headers = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" }
+
+          Invoke-WebRequest -Uri $url -Headers $headers -OutFile ngspice.7z -MaximumRedirection 10
+
+          $size = (Get-Item ngspice.7z).Length
+          Write-Host "Downloaded ngspice.7z: $size bytes"
+          if ($size -lt 1000000) {
+            Write-Host "----- First 2000 chars of downloaded file (likely not the real archive) -----"
+            Get-Content ngspice.7z -TotalCount 40
+            throw "Downloaded file is too small to be the real ngspice archive (expected ~10 MB). Got $size bytes -- see content above."
+          }
+
           & "C:\Program Files\7-Zip\7z.exe" x ngspice.7z -ongspice_extracted -y
 
       - name: Assemble the release folder (exe + ngspice side by side)
